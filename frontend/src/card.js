@@ -10,7 +10,7 @@ export class BelovodiePlacesCard extends LitElement {
   static styles=styles;
   static properties={catalog:{state:true},selectedIds:{state:true},query:{state:true},selectedId:{state:true},mode:{state:true},feedback:{state:true},pending:{state:true},connectionError:{state:true},mapError:{state:true},rowLimit:{state:true},openGroupIds:{state:true},placeDetail:{state:true},detailsPending:{state:true},detailError:{state:true},photoFailed:{state:true},drawerOpen:{state:true}};
   constructor(){super();this.selectedIds=null;this.query='';this.feedback='';this.mode='transit';this.rowLimit=80;this.catalog=null;this.onKey=e=>this.handleKey(e);}
-  setConfig(raw){this._config=normalizeCardConfig(raw);this.mode=this._config.default_transport;this.selectedIds=null;this.selectedId=null;this.openGroupIds=null;this.placeDetail=null;this._detailRequest=null;this.detailsPending=false;this.rowLimit=80;this.requestUpdate();this.connectClient();}
+  setConfig(raw){this._config=normalizeCardConfig(raw);this.mode=this._config.default_transport;this.selectedIds=null;this.selectedId=null;this.openGroupIds=[];this.placeDetail=null;this._detailRequest=null;this.detailsPending=false;this.rowLimit=80;this.requestUpdate();this.connectClient();}
   getCardSize(){return 10;}
   set hass(value){const old=this._hass;this._hass=value;if(this.client)this.client.hass=value;
     if(old?.connection!==value?.connection){this.client?.disconnect();this.client=null;this.connectClient();}
@@ -18,13 +18,12 @@ export class BelovodiePlacesCard extends LitElement {
   }
   get hass(){return this._hass;}
   connectedCallback(){super.connectedCallback();this.addEventListener('keydown',this.onKey);this.requestUpdate();this.connectClient();}
-  disconnectedCallback(){super.disconnectedCallback();this.removeEventListener('keydown',this.onKey);this.client?.disconnect();this.client=null;this.observer?.disconnect();this.mapView?.destroy();this.mapView=null;this._paintConfig=null;this._detailRequest=null;}
+  disconnectedCallback(){super.disconnectedCallback();this.removeEventListener('keydown',this.onKey);this.client?.disconnect();this.client=null;this.observer?.disconnect();this.mapView?.destroy();this.mapView=null;this._paintConfig=null;this._detailRequest=null;this.selectedId=null;this.drawerOpen=false;this.openGroupIds=[];this.query='';}
   connectClient(){
     if(!this.isConnected||!this._config||!this._hass?.connection||this.client)return;
     this.client=new PlacesClient(this._hass,data=>{this.catalog=data;this.connectionError='';
       const valid=new Set(this.groups.map(g=>g.id));if(this.selectedIds)this.selectedIds=this.selectedIds.filter(id=>valid.has(id));
-      if(this.selectedId&&!data.places.some(p=>p.id===this.selectedId))this.selectedId=null;
-      if(!this.selectedId)this.selectedId=this.places[0]?.id;
+      if(this.selectedId&&!data.places.some(p=>p.id===this.selectedId)){this.selectedId=null;this.drawerOpen=false;this.placeDetail=null;this._detailRequest=null;}
     },()=>{this.connectionError='Нет подключения к спискам. Проверьте интеграцию Google Maps Lists.';});
     this.client.connect();
   }
@@ -49,9 +48,9 @@ export class BelovodiePlacesCard extends LitElement {
     const lat=home?.attributes?.latitude,lon=home?.attributes?.longitude;
     const origin=home&&!['unavailable','unknown'].includes(home.state)&&valid(lat,lon)?[lon,lat]:null;
     const color=this.places.find(place=>place.id===p?.id)?.color??this.groups.find(g=>p?.memberships.some(m=>m.list_id===g.id))?.color??'#67c8d8';
-    this.mapView?.setSelection(p&&valid(p.latitude,p.longitude)?{id:p.id,name:placeTitle(p),destination:[p.longitude,p.latitude],origin,color,dark:this._hass?.themes?.darkMode??true}:null);
+    this.mapView?.setSelection(p&&valid(p.latitude,p.longitude)?{id:p.id,name:placeTitle(p),destination:[p.longitude,p.latitude],origin,color,dark:this._hass?.themes?.darkMode??true}:origin?{id:'home',name:'',destination:origin,origin:null,overview:true,dark:this._hass?.themes?.darkMode??true}:null);
   }
-  toggleTreeGroup(id){const ids=new Set(this.openGroupIds??[this.groups[0]?.id]);if(ids.has(id))ids.delete(id);else ids.add(id);this.openGroupIds=[...ids];}
+  toggleTreeGroup(id){const ids=new Set(this.openGroupIds??[]);if(ids.has(id))ids.delete(id);else ids.add(id);this.openGroupIds=[...ids];}
   async openDetails(id){this._detailRequest=null;this.drawerOpen=false;this.selectedId=id;this.feedback='';this.routeLink=null;this.placeDetail=null;this.photoFailed=false;this.mapError='';this.detailsPending=false;this.restorePlaceId=id;}
   async showDrawer(){this.drawerOpen=true;await this.updateComplete;this.renderRoot.querySelector('.drawer-close')?.focus();if(!this.placeDetail)this.loadDetails();}
   async loadDetails(){
@@ -109,7 +108,7 @@ export class BelovodiePlacesCard extends LitElement {
       <section class="notes"><h3>Моё примечание</h3>${p.memberships.some(m=>m.note)?p.memberships.filter(m=>m.note).map(m=>html`<div class="membership"><div class="membership-title">${this.catalog.groups.find(g=>g.id===m.list_id)?.name??m.list_id}</div><p class="note">${m.note}</p></div>`):html`<p class="muted">Примечание не добавлено</p>`}</section></section>`;
   }
   renderTree(){
-    const tree=this.catalog?placeHierarchy(this.catalog,this.groups,this.query):[],open=new Set(this.openGroupIds??[this.groups[0]?.id]);
+    const tree=this.catalog?placeHierarchy(this.catalog,this.groups,this.query):[],open=new Set(this.openGroupIds??[]);
     return html`<div class="tree" aria-label="Списки сохранённых мест">${tree.map(g=>{const expanded=Boolean(this.query.trim())||open.has(g.id);return html`<section class="tree-group" style=${`--group-color:${g.color}`}><button class="tree-header" aria-expanded=${expanded} aria-controls=${`list-${g.id}`} @click=${()=>this.toggleTreeGroup(g.id)}><ha-icon .icon=${g.icon}></ha-icon><span>${g.name}</span><span class="count">${g.places.length}</span><span class="disclosure" aria-hidden="true">${expanded?'−':'+'}</span></button>${expanded?html`<div class="tree-rows" id=${`list-${g.id}`} role="group" aria-label=${g.name}>${g.places.slice(0,this.rowLimit).map(p=>html`<button class=${`row ${p.id===this.selectedId?'selected':''}`} aria-pressed=${p.id===this.selectedId} data-place-id=${p.id} @click=${()=>this.openDetails(p.id)}><span class="dot"></span><span class="row-text"><span class="name">${placeTitle(p)}</span>${p.label&&p.label.trim()!==p.name?html`<span class="original-name">${p.name}</span>`:nothing}${p.address?html`<span class="address">${p.address}</span>`:nothing}</span></button>`)}${!g.places.length?html`<div class="empty">В списке пока нет мест</div>`:nothing}${g.places.length>this.rowLimit?html`<button class="chip" @click=${()=>this.rowLimit+=80}>Показать ещё</button>`:nothing}</div>`:nothing}</section>`;})}${!tree.length?html`<div class="empty">${this.catalog?'Нет мест по выбранным условиям':'Подключаем списки…'}</div>`:nothing}</div>`;
   }
   render(){if(!this._config)return nothing;

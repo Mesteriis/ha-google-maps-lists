@@ -11,3 +11,5 @@ test('missing home, coincident points, polar and dateline positions remain finit
   const camera=destinationCamera(selection);assert.ok(Number.isFinite(camera.zoom)&&Number.isFinite(camera.bearing));assert.equal(camera.pitch,0);
  }
 });
+
+test('home overview stays centered without a destination selection',()=>{const camera=destinationCamera({destination:[2,41],overview:true});assert.deepEqual(camera.center,[2,41]);assert.equal(camera.zoom,13);assert.equal(camera.bearing,0);});
