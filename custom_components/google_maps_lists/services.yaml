@@ -1,0 +1,19 @@
+reload:
+  name: Перечитать списки
+  description: Перечитать google_maps_lists.yaml. Только администратор.
+refresh:
+  name: Обновить места
+  description: Загрузить списки заново. Повторный запрос в течение 60 секунд пропускается.
+send_to_phone:
+  name: Маршрут на телефон
+  description: Отправить маршрут от zone.home к месту из каталога на настроенный телефон.
+  fields:
+    place_id:
+      required: true
+      selector:
+        text:
+    mode:
+      required: true
+      selector:
+        select:
+          options: [transit, driving, walking, bicycling]

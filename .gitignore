@@ -1,0 +1,9 @@
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.DS_Store
+google_maps_lists.yaml
+.storage/
+secrets.yaml

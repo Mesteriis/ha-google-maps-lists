@@ -1,0 +1,11 @@
+update_interval: 21600
+stale_after: 86400
+route_origin: zone.home
+notify_service: notify.mobile_app_phone
+labels: {}
+lists:
+  - id: restaurants
+    name: Рестораны
+    url: https://maps.app.goo.gl/YOUR_VIEW_LINK
+    icon: mdi:silverware-fork-knife
+    color: "#edbd61"
