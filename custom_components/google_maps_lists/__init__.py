@@ -35,7 +35,7 @@ async def async_setup(hass,config):
     if DOMAIN not in config or DOMAIN in hass.data:
         return True
     from .frontend import async_register_card
-    await async_register_card(hass, '1.1.1')
+    await async_register_card(hass, '1.1.2')
     definition = validate_config(config[DOMAIN])
     catalog = Catalog(hass,definition)
     try:

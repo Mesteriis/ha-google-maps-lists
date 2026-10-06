@@ -18,7 +18,8 @@ export class BelovodiePlacesCard extends LitElement {
   }
   get hass(){return this._hass;}
   connectedCallback(){super.connectedCallback();this.addEventListener('keydown',this.onKey);this.requestUpdate();this.connectClient();}
-  disconnectedCallback(){super.disconnectedCallback();this.removeEventListener('keydown',this.onKey);this.client?.disconnect();this.client=null;this.observer?.disconnect();this.mapView?.destroy();this.mapView=null;this._paintConfig=null;this._detailRequest=null;this.selectedId=null;this.drawerOpen=false;this.openGroupIds=[];this.query='';}
+  disconnectedCallback(){super.disconnectedCallback();this.removeEventListener('keydown',this.onKey);this.client?.disconnect();this.client=null;this.observer?.disconnect();this.mapView?.destroy();this.mapView=null;this._paintConfig=null;this.resetOverview();}
+  resetOverview(){this._detailRequest=null;this.selectedId=null;this.drawerOpen=false;this.openGroupIds=[];this.query='';this.placeDetail=null;this.detailsPending=false;this.feedback='';}
   connectClient(){
     if(!this.isConnected||!this._config||!this._hass?.connection||this.client)return;
     this.client=new PlacesClient(this._hass,data=>{this.catalog=data;this.connectionError='';
@@ -38,7 +39,8 @@ export class BelovodiePlacesCard extends LitElement {
     if(container&&!this.mapView){try{
       this.mapView=new PlacesMap(container,id=>this.openDetails(id),maplibregl,()=>{this.mapError='Карта временно недоступна. Места доступны в списке.';});
       this.mapView.setTheme(this._hass?.themes?.darkMode??true);
-      this.observer=new ResizeObserver(()=>this.mapView?.resize());this.observer.observe(container);
+      // HA tab cards retain connected elements and hide their ancestor with display:none.
+      this.observer=new ResizeObserver(()=>{if(!container.clientWidth||!container.clientHeight)this.resetOverview();else this.mapView?.resize();});this.observer.observe(container);
     }catch{this.mapError='Карта недоступна на этом устройстве. Используйте список мест.';}}
     if(this.mapView&&(this._paintConfig!==this._config||this._paintCatalog!==this.catalog||this._paintIds!==this.selectedIds||this._paintQuery!==this.query)){
       this._paintConfig=this._config;this._paintCatalog=this.catalog;this._paintIds=this.selectedIds;this._paintQuery=this.query;this.mapView.setPlaces(this.places);
